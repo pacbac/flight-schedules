@@ -13,6 +13,7 @@ delayedQueue = PriorityQueue() # highest to lowest priority
 airportList = {}
 availableSlots = {}
 delayedList = []
+canceledList = []
 # parameters
 TEMP = 1000
 TEMP_DECAY = 0.98
@@ -47,6 +48,8 @@ def calcTotalCompensation():
             comp += flight.passngrs*400
         else:
             comp += flight.passngrs*600
+    for flight in canceledList:
+        comp += flight.passngrs*600
     return comp
 
 def checkAvailableSlots(time):
@@ -58,7 +61,7 @@ def checkAvailableSlots(time):
             availableSlots[time][airport] = airportList[airport].slotsAvail
 
 def runSim():
-    global delayedList, flightsInAir, airportList, availableSlots, delayedQueue
+    global delayedList, flightsInAir, airportList, availableSlots, delayedQueue, canceledList
     oneDSched = pd.read_excel("FlightSchedule.xlsx", "One Day Schedule").values # convert dataframe to np array
     setup()
     time = None
@@ -102,12 +105,16 @@ def runSim():
             # add in the new plane 'flight' to the departure list
             depList.append(flight)
             if not airportList[flight.dep].addActivePlane(): # if airport has enough room
+                if dep == "Pontheugh":
+                    canceledList.append(flight)
                 print(f"{time} Departure: Cancelled flight {flight.flightNum} at {airportList[flight.dep].name}")
             # check if flight arrival time equals now
             while not flightsInAir.empty() and flightsInAir.queue[0][0] == time:
                 arrTime, arriving = flightsInAir.get() # get next arriving flight
                 # pop unnecessary duplicates off queue
                 if not airportList[arriving.arr].addActivePlane(): # if airport has enough room
+                    if dep == "Pontheugh":
+                        canceledList.append(flight)
                     print(f"{time} Arrival: Cancelled flight {arriving.flightNum} at {airportList[arriving.arr].name}")
         else:
             depList.append(flight)
@@ -115,6 +122,8 @@ def runSim():
                 countPontheugh += 1
             depAirport = airportList[flight.dep]
             if not airportList[flight.dep].addActivePlane(): # if airport has enough room
+                if dep == "Pontheugh":
+                    canceledList.append(flight)
                 print(f"{time} Departure: Cancelled flight {flight.flightNum} at {airportList[flight.dep].name}")
 
     # flights have been processed, but many still remain on flightsInAir and need to land
@@ -129,6 +138,8 @@ def runSim():
             while not flightsInAir.empty() and flightsInAir.queue[0][0] == time:
                 arrTime, arriving = flightsInAir.get()
                 if not airportList[arriving.arr].addActivePlane(): # if airport has enough room
+                    if dep == "Pontheugh":
+                        canceledList.append(flight)
                     print(f"{time} Arrival: Cancelled flight {arriving.flightNum} at {airportList[arriving.arr].name}")
     checkAvailableSlots(time)
     print("Finished setting up simulation, finding best delayed flight sequence next...")
@@ -199,8 +210,6 @@ def findSequence():
         TEMP *= TEMP_DECAY
         for flight in delayedList:
             delayedQueue.put((-flight.priority(), flight))
-
-
 
 if __name__ == "__main__":
     findSequence()
