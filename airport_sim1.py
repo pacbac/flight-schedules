@@ -7,6 +7,8 @@ from random import random
 import datetime as dt
 import math
 
+GRAPH = True
+compList = []
 # global data structures
 flightsInAir = PriorityQueue()
 delayedQueue = PriorityQueue() # highest to lowest priority
@@ -17,8 +19,8 @@ canceledList = []
 # parameters
 TEMP = 1000
 TEMP_DECAY = 0.98
-LEARN_RATE = 0.1
-LEARN_DECAY = 0.9
+LEARN_RATE = 0.01
+LEARN_DECAY = 0.98
 MAX_ROUNDS = 100
 K = 1
 
@@ -50,7 +52,7 @@ def calcTotalCompensation():
             comp += flight.passngrs*600
     for flight in canceledList:
         comp += flight.passngrs*600
-    print(comp)
+        print(comp)
     return comp
 
 def checkAvailableSlots(time):
@@ -108,7 +110,6 @@ def runSim():
             if not airportList[flight.dep].addActivePlane(): # if airport has enough room
                 if dep == "Pontheugh":
                     canceledList.append(flight)
-                #print(f"{time} Departure: Cancelled flight {flight.flightNum} at {airportList[flight.dep].name}")
             # check if flight arrival time equals now
             while not flightsInAir.empty() and flightsInAir.queue[0][0] == time:
                 arrTime, arriving = flightsInAir.get() # get next arriving flight
@@ -116,7 +117,6 @@ def runSim():
                 if not airportList[arriving.arr].addActivePlane(): # if airport has enough room
                     if dep == "Pontheugh":
                         canceledList.append(flight)
-                    #print(f"{time} Arrival: Cancelled flight {arriving.flightNum} at {airportList[arriving.arr].name}")
         else:
             depList.append(flight)
             if dep == "Pontheugh":
@@ -125,7 +125,6 @@ def runSim():
             if not airportList[flight.dep].addActivePlane(): # if airport has enough room
                 if dep == "Pontheugh":
                     canceledList.append(flight)
-                #print(f"{time} Departure: Cancelled flight {flight.flightNum} at {airportList[flight.dep].name}")
 
     # flights have been processed, but many still remain on flightsInAir and need to land
     while not flightsInAir.empty():
@@ -141,9 +140,7 @@ def runSim():
                 if not airportList[arriving.arr].addActivePlane(): # if airport has enough room
                     if dep == "Pontheugh":
                         canceledList.append(flight)
-                    #print(f"{time} Arrival: Cancelled flight {arriving.flightNum} at {airportList[arriving.arr].name}")
     checkAvailableSlots(time)
-    print("Finished setting up simulation, finding best delayed flight sequence next...")
 
 def calcArrivalTime(time, flight):
     depTime, arrTime = flight.depTime, flight.arrTime
@@ -202,6 +199,11 @@ def findSequence():
         newComp = calcTotalCompensation()
         if newComp < comp:
             comp = newComp
+            print()
+            delayedList.sort(key=lambda e: e.depTime)
+            for flight in delayedList:
+                print(flight.depTime, flight.flightNum)
+            print(calcTotalCompensation())
         else:
             if random() < math.exp(-K*(newComp - comp)/TEMP):
                 if lastIter[j] or (flight.params[j] - LEARN_RATE < 0):
@@ -214,9 +216,13 @@ def findSequence():
                     flight.params[j] =  (flight.params[j] + LEARN_RATE)
                 else:
                     flight.params[j] = (flight.params[j] - LEARN_RATE)
-        print(flight.flightNum, flight.params, comp)
+                comp = newComp
+        if GRAPH:
+            compList.append(comp)
         LEARN_RATE *= LEARN_DECAY
         TEMP *= TEMP_DECAY
+
+        # reset all data but the flight's parameters
         newDelayedList = []
         for i in range(len(pontheughDelay)):
             flight = pontheughDelay[i]
