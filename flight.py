@@ -13,7 +13,7 @@ class Flight:
     - dep: location of departure
     - arr: location of arrival
     """
-    def __init__(self, flightNum, dep, arr, depTime, arrTime, passngrs):
+    def __init__(self, flightNum, dep, arr, depTime, arrTime, passngrs, params):
         self.flightNum = flightNum
         self.passngrs = passngrs
         self.intrntl = dep != arr and dep in INTERNATIONAL and arr in INTERNATIONAL
@@ -24,10 +24,24 @@ class Flight:
         self.wait = 0 # in hours
         self.route = 0
         self.remain = 6 # default, unused value
-        self.params = [random() for i in range(5)]
+        self.params = params
 
     def __iter__(self):
-        return iter([self.wait, self.passngrs, self.remain, int(self.intrntl), self.route])
+        return iter([self.wait, self.calcCompensation()/self.passngrs/100, self.passngrs/100, self.remain, int(self.intrntl), self.route])
+
+    def calcCompensation(self):
+        comp = 0
+        if self.wait <= 2:
+            comp += self.passngrs*100
+        elif 2 < self.wait <= 4:
+            comp += self.passngrs*200
+        elif 4 < self.wait <= 6:
+            comp += self.passngrs*300
+        elif 6 < self.wait <= 8:
+            comp += self.passngrs*400
+        else:
+            comp += self.passngrs*600
+        return comp
 
     # compute weighted sum of the properties to get priority, where the weights are from self.params
     def priority(self):
